@@ -46,7 +46,7 @@ async def send_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=GROUP_CHAT_ID, text=message)
     await update.message.reply_text("✅ Sent!")
 
-# ── /send file ───────────────────────────────────────────────
+# ── /send file (caption must start with /send) ───────────────
 
 async def send_file_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != YOUR_USER_ID:
@@ -54,61 +54,43 @@ async def send_file_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg = update.message
+
+    # Check caption starts with /send
     caption = msg.caption or ""
+    if not caption.lower().startswith("/send"):
+        await msg.reply_text(
+            "To send a file, attach it and set caption to /send\n"
+            "Example caption: /send check this out"
+        )
+        return
 
-    # Strip /send from caption if present
-    if caption.lower().startswith("/send"):
-        caption = caption[5:].strip()
+    # Strip /send from caption text
+    clean_caption = caption[5:].strip()
 
-    if msg.photo:
-        file_id = msg.photo[-1].file_id
-        await context.bot.send_photo(chat_id=GROUP_CHAT_ID, photo=file_id, caption=caption)
-        await msg.reply_text("✅ Photo sent!")
+    # copy_message handles ALL file types automatically
+    await context.bot.copy_message(
+        chat_id=GROUP_CHAT_ID,
+        from_chat_id=msg.chat_id,
+        message_id=msg.message_id,
+        caption=clean_caption if clean_caption else None
+    )
+    await msg.reply_text("✅ Sent!")
 
-    elif msg.video:
-        file_id = msg.video.file_id
-        await context.bot.send_video(chat_id=GROUP_CHAT_ID, video=file_id, caption=caption)
-        await msg.reply_text("✅ Video sent!")
-
-    elif msg.document:
-        file_id = msg.document.file_id
-        await context.bot.send_document(chat_id=GROUP_CHAT_ID, document=file_id, caption=caption)
-        await msg.reply_text("✅ File sent!")
-
-    elif msg.audio:
-        file_id = msg.audio.file_id
-        await context.bot.send_audio(chat_id=GROUP_CHAT_ID, audio=file_id, caption=caption)
-        await msg.reply_text("✅ Audio sent!")
-
-    elif msg.voice:
-        file_id = msg.voice.file_id
-        await context.bot.send_voice(chat_id=GROUP_CHAT_ID, voice=file_id)
-        await msg.reply_text("✅ Voice sent!")
-
-    elif msg.sticker:
-        file_id = msg.sticker.file_id
-        await context.bot.send_sticker(chat_id=GROUP_CHAT_ID, sticker=file_id)
-        await msg.reply_text("✅ Sticker sent!")
-
-    else:
-        await msg.reply_text("No file detected. Use /send text for messages.")
-
-# ── Start ────────────────────────────────────────────────────
+# ── Start ─────────────────────────────────────────────────────
 
 Thread(target=run_flask).start()
 
 bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+
 bot_app.add_handler(CommandHandler("send", send_command))
 bot_app.add_handler(MessageHandler(
     filters.StatusUpdate.NEW_CHAT_MEMBERS,
     welcome
 ))
 bot_app.add_handler(MessageHandler(
-    filters.ChatType.PRIVATE & (
-        filters.PHOTO | filters.VIDEO |
-        filters.Document.ALL | filters.AUDIO |
-        filters.VOICE | filters.Sticker.ALL
-    ),
+    filters.PHOTO | filters.VIDEO |
+    filters.Document.ALL | filters.AUDIO |
+    filters.VOICE | filters.Sticker.ALL,
     send_file_command
 ))
 

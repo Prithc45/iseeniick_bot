@@ -53,10 +53,12 @@ async def send_file_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Unauthorized.")
         return
 
-
     msg = update.message
+    caption = msg.caption or ""
 
-    caption = " ".join(context.args) if context.args else ""
+    # Strip /send from caption if present
+    if caption.lower().startswith("/send"):
+        caption = caption[5:].strip()
 
     if msg.photo:
         file_id = msg.photo[-1].file_id
@@ -89,12 +91,7 @@ async def send_file_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("✅ Sticker sent!")
 
     else:
-        # No file attached, treat as text
-        if context.args:
-            await context.bot.send_message(chat_id=GROUP_CHAT_ID, text=caption)
-            await msg.reply_text("✅ Sent!")
-        else:
-            await msg.reply_text("Usage: /send your message\nOr send a file with /send as caption.")
+        await msg.reply_text("No file detected. Use /send text for messages.")
 
 # ── Start ────────────────────────────────────────────────────
 
@@ -111,7 +108,7 @@ bot_app.add_handler(MessageHandler(
         filters.PHOTO | filters.VIDEO |
         filters.Document.ALL | filters.AUDIO |
         filters.VOICE | filters.Sticker.ALL
-    ) & filters.CaptionRegex(r'^/send'),
+    ),
     send_file_command
 ))
 
